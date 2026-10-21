@@ -6,13 +6,15 @@ A visual, checkbox-driven generator that produces complete, secure payment integ
 
 ---
 
-> ## ⚠️ Project status: Phase 0.5 — Architecture decided, nothing built
+> ## ⚠️ Project status: Phase 1 — generator walking skeleton exists, no provider is supported
 >
-> **No integration is implemented. Nothing here is usable yet.**
+> **No provider integration has been tested. Nothing here is production-usable yet.**
 >
-> This repository currently contains research, planning, and a completed feasibility gate. There is no generator, no adapter, and no supported provider. Every claim about provider behaviour in these documents is a **research finding with a source link**, not a working feature.
+> A generator now exists. `generate --provider stripe` emits a typed native client, route handlers, a fail-closed configuration loader and sandbox-ready docs from `providers/stripe/manifest.yaml`, and the emitted code typechecks. What does **not** exist is a proven integration: no sandbox transaction has been sent, no webhook has been verified against the provider, and no idempotency behaviour has been observed. Those are the gates that turn `planned` into `supported`.
 >
-> The architecture is decided: **native emission**. Generated integrations call the provider's own API directly with the user's own credentials and contain no Vault-Payments runtime. Hyperswitch Prism is not a dependency of generated code; at most it is an optional **build-time conformance oracle** for the generator's own tests. See [`docs/PHASE_0.5_FEASIBILITY.md`](docs/PHASE_0.5_FEASIBILITY.md).
+> Every claim about provider behaviour remains a **research finding with a source link**, not a working feature.
+>
+> The architecture is decided and implemented: **native emission**. Generated integrations call the provider's own API directly with the user's own credentials and contain no Vault-Payments runtime. Hyperswitch Prism is not a dependency of generated code; it is an optional **build-time conformance oracle** for the generator's own tests, pinned in one CI job. See [`docs/PHASE_0.5_FEASIBILITY.md`](docs/PHASE_0.5_FEASIBILITY.md).
 >
 > A provider will only be described as *supported* after its contract is documented **and** its sandbox tests pass. Until then the README lists it as `planned`, and the capability matrix records each individual capability as `VERIFIED`, `PARTIAL`, `UNSUPPORTED` or `UNKNOWN`.
 
@@ -113,6 +115,28 @@ So generated code cannot contain Prism without failing the cross-platform promis
 
 See [`docs/PHASE_0.5_FEASIBILITY.md`](docs/PHASE_0.5_FEASIBILITY.md) §4–5 for the option comparison and the measured evidence.
 
+## Running the generator (Phase 1 walking skeleton)
+
+The pipeline is real and end to end: manifest → validate → plan → emit.
+
+```bash
+npm install
+
+# See exactly what would be written, before anything is written.
+npm run generate -- generate --provider stripe --dry-run
+
+# Emit into your project.
+npm run generate -- generate --provider stripe --out ./my-integration
+```
+
+`--dry-run` prints the file plan, every operation with its capability status and
+source URL, the required environment variables, and any gaps or warnings. The
+plan is the contract: emit writes exactly the files the plan showed.
+
+The emitted project has **no runtime dependencies**. It typechecks on its own,
+and its configuration loader **fails closed** — it refuses to run with missing
+secrets and refuses to touch the live API unless `VAULT_ALLOW_LIVE=true`.
+
 ## Documentation
 
 | Document | What it covers |
@@ -145,8 +169,8 @@ Details in [`docs/SECURITY_AND_LICENSING.md`](docs/SECURITY_AND_LICENSING.md).
 |-----------|-------|
 | Phase 0 | Research and architecture |
 | Phase 0.5 | Feasibility gate; architecture decided — native emission — **complete** |
-| Phase 1 | Walking skeleton: manifest schema, Stripe client generation, oracle harness (~2–3 weeks) — **next** |
-| Phase 2 | Stripe vertical slice with webhooks and sandbox tests |
+| Phase 1 | Walking skeleton: manifest schema, Stripe client generation, oracle harness — **complete** |
+| Phase 2 | Stripe vertical slice with webhooks and sandbox tests — **next** |
 | Phase 3 | Minimal visual builder |
 | Phase 4 | Square native adapter — second structurally different provider |
 | Phase 5 | Remaining eight providers |
@@ -157,7 +181,7 @@ Terminals and Tap to Pay are a **separate epic**: terminal support does not foll
 
 ## Contributing
 
-Not open for code contributions yet — the architecture gate has closed but implementation has not started. Research corrections are welcome and especially valuable: if a capability in the matrix is wrong or out of date, open an issue with the official documentation link.
+Open for research corrections, which are especially valuable: if a capability in the matrix is wrong or out of date, open an issue with the official documentation link.
 
 Every provider claim must carry a source URL and a verification date. "It works" is not evidence; a passing sandbox test is.
 

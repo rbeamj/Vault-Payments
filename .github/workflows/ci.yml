@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  # The generator must build, run and emit on every platform without Prism.
+  # Oracle tests skip themselves here; that is the designed behaviour, and it
+  # is what proves the generator has no hard Prism dependency.
+  verify:
+    name: Verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+      - run: npm test
+
+  # Optional build-time conformance oracle.
+  #
+  # Pinned to ubuntu-24.04 deliberately: Prism's native library needs
+  # glibc >= 2.38 and ships only darwin-arm64 / linux-arm64 / linux-x64, so
+  # this is the one environment where the live `callReq` path can run.
+  # hyperswitch-prism is pinned exactly and is never a dependency of the
+  # generator or of generated output.
+  oracle:
+    name: Conformance oracle (ubuntu-24.04)
+    runs-on: ubuntu-24.04
+    continue-on-error: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      # Pinned build-time dependency. Installed separately from package.json so
+      # that the generator's own dependency tree stays Prism-free.
+      - name: Install pinned Prism oracle
+        run: npm install --no-save hyperswitch-prism@0.6.0
+      - run: npm test

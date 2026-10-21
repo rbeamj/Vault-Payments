@@ -1,0 +1,161 @@
+# Stripe — Vault-Payments provider manifest
+#
+# Phase 1 walking skeleton. Capability statuses mirror the committed research in
+# docs/PROVIDER_MATRIX.md §4.1. Nothing here is sandbox-proven yet: these are
+# documentation-level findings, and a provider only becomes *supported* when
+# G1–G7 in docs/MVP_PLAN.md §1 pass.
+
+id: stripe
+display_name: Stripe
+strategy: native
+surface: default
+oracle_connector: stripe
+
+regions: [US, CA, GB, EU, AU, JP, SG, BR, IN, MX, NZ, CH, SE, NO, DK, PL, CZ, AT, BE, DE, ES, FR, IE, IT, NL, PT, FI, LU, MY, TH, HK, AE]
+
+summary: >-
+  Payment Intents lifecycle with header bearer auth, an Idempotency-Key header,
+  and a signature over timestamp + raw body. The simplest correct baseline.
+
+endpoints:
+  # Stripe uses one host for both modes; the key prefix selects test vs live.
+  live: https://api.stripe.com
+  sandbox: https://api.stripe.com
+
+request:
+  # Stripe accepts application/x-www-form-urlencoded, not JSON. Nested values
+  # use bracket notation (e.g. metadata[order_id]=…).
+  encoding: form
+
+auth:
+  model: bearer
+  oauth_required_for_seller_context: false
+  header: Authorization
+  credential_fields:
+    - name: secret_key
+      required: true
+      secret: true
+      env: STRIPE_SECRET_KEY
+      description: Secret API key. `sk_test_…` in sandbox, `sk_live_…` in production.
+    - name: webhook_secret
+      required: true
+      secret: true
+      env: STRIPE_WEBHOOK_SECRET
+      description: Endpoint signing secret (`whsec_…`) used to verify inbound webhooks.
+
+capabilities:
+  payment.create:
+    status: verified
+    source: https://docs.stripe.com/api/payment_intents/create
+  payment.authorize:
+    status: verified
+    notes: Manual capture. Create a PaymentIntent with capture_method=manual.
+    source: https://docs.stripe.com/api/payment_intents/create
+  payment.capture:
+    status: verified
+    source: https://docs.stripe.com/api/payment_intents/capture
+  payment.void:
+    status: verified
+    notes: Cancelling an uncaptured PaymentIntent is the void path.
+    source: https://docs.stripe.com/api/payment_intents/cancel
+  payment.refund:
+    status: verified
+    notes: Full and partial refunds; refunds are created against a PaymentIntent or Charge.
+    source: https://docs.stripe.com/api/refunds/create
+  payment.status:
+    status: verified
+    source: https://docs.stripe.com/api/payment_intents/retrieve
+  idempotency:
+    status: verified
+    notes: Idempotency-Key header, retained for 24 hours on v1 endpoints.
+    source: https://docs.stripe.com/api/idempotent_requests
+
+operations:
+  authorize:
+    capability: payment.authorize
+    method: POST
+    path: /v1/payment_intents
+    idempotency: header
+    idempotency_field: Idempotency-Key
+    body:
+      amount: { from: amount }
+      currency: { from: currency }
+      # An authorization is a PaymentIntent that will not be captured automatically.
+      capture_method: { const: manual }
+      description: { from: reference }
+      metadata: { from: metadata }
+  capture:
+    capability: payment.capture
+    method: POST
+    path: /v1/payment_intents/{id}/capture
+    idempotency: header
+    idempotency_field: Idempotency-Key
+    body:
+      amount_to_capture: { from: amount }
+  void:
+    capability: payment.void
+    method: POST
+    path: /v1/payment_intents/{id}/cancel
+    idempotency: header
+    idempotency_field: Idempotency-Key
+  refund:
+    capability: payment.refund
+    method: POST
+    path: /v1/refunds
+    idempotency: header
+    idempotency_field: Idempotency-Key
+    body:
+      payment_intent: { from: id }
+      amount: { from: amount }
+  status:
+    capability: payment.status
+    method: GET
+    path: /v1/payment_intents/{id}
+    idempotency: none
+
+terminals:
+  physical_terminal: verified
+  tap_to_pay_mobile: verified
+  notes: >-
+    Terminal support does not follow processor support. Stripe Terminal is a
+    separate SDK family with its own enablement and is out of scope for the MVP.
+
+webhooks:
+  registration: dashboard
+  verification: hmac_local
+  notification_url_binding: false
+  signature:
+    header: Stripe-Signature
+    algorithm: hmac-sha256
+    signed_payload: "timestamp.raw_body"
+  retry_window: "72h"
+  replay_protection: manual
+  notes: >-
+    Header carries `t=<timestamp>,v1=<signature>`. There is no automatic replay:
+    use the events list or a dashboard resend, and dedupe on the event id.
+  source: https://docs.stripe.com/webhooks
+
+sandbox:
+  access: self_serve
+  notes: Instant test-mode keys; no partner approval required.
+
+approval:
+  partner_program: false
+  app_review: false
+
+attribution:
+  required_fields: []
+  notes: Stripe requires no application-identification fields on API requests.
+
+distribution:
+  # Vault-Payments never copies a provider SDK into generated output.
+  vendor_sdk: prohibited
+
+sources:
+  - https://docs.stripe.com/api
+  - https://docs.stripe.com/webhooks
+  - https://docs.stripe.com/api/idempotent_requests
+  - https://docs.stripe.com/terminal
+  - https://docs.stripe.com/testing
+
+verified_at: 2026-10-21

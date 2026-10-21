@@ -1,3 +1,15 @@
+# Node / TypeScript
+node_modules/
+dist/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm/
+
+# Generator output (users generate into their own repo; local scratch only)
+/generated/
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]

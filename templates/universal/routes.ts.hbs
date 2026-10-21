@@ -1,0 +1,131 @@
+// GENERATED FILE — do not edit by hand.
+//
+// Framework-agnostic route handlers. Each one validates its input and delegates
+// to the client. None of them touches raw cardholder data, and none of them
+// performs business logic — that belongs to the caller.
+
+import type {
+  RequestOptions,
+{{#each resultTypes}}
+  {{this}},
+{{/each}}
+{{#each requestTypes}}
+  {{this}},
+{{/each}}
+} from './types.js';
+import type { {{{clientClassName}}} } from './client.js';
+
+export interface RouteRequest {
+  /** Path parameters, already decoded by the host framework. */
+  params?: Record<string, string | undefined>;
+  /** Parsed JSON body, if any. */
+  body?: unknown;
+}
+
+export interface RouteResponse {
+  status: number;
+  body: unknown;
+}
+
+export type Handler = (request: RouteRequest) => Promise<RouteResponse>;
+
+export interface Route {
+  method: string;
+  path: string;
+  name: string;
+  handler: Handler;
+}
+
+/** Raised when caller input does not match the canonical interface. */
+export class ValidationError extends Error {
+  readonly field: string;
+
+  constructor(field: string, expectation: string) {
+    super(`Invalid request: "${field}" must be ${expectation}.`);
+    this.name = 'ValidationError';
+    this.field = field;
+  }
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function requireInteger(value: unknown, field: string): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    throw new ValidationError(field, 'a positive integer amount in minor units');
+  }
+  return value;
+}
+
+function optionalInteger(value: unknown, field: string): number | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return requireInteger(value, field);
+}
+
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== 'string' || value.trim() === '') {
+    throw new ValidationError(field, 'a non-empty string');
+  }
+  return value;
+}
+
+function optionalString(value: unknown, field: string): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return requireString(value, field);
+}
+
+function optionalStringMap(value: unknown, field: string): Record<string, string> | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  const record = asRecord(value);
+  for (const [key, entry] of Object.entries(record)) {
+    if (typeof entry !== 'string') {
+      throw new ValidationError(field, 'a map of string to string');
+    }
+    record[key] = entry;
+  }
+  return record as Record<string, string>;
+}
+
+{{#each emitted}}
+async function {{{handlerName}}}(client: {{{../clientClassName}}}, request: RouteRequest): Promise<RouteResponse> {
+{{#if hasId}}
+  const id = request.params?.['id'];
+  if (id === undefined || id === '') {
+    throw new ValidationError('id', 'a non-empty path parameter');
+  }
+{{/if}}
+{{#if hasBody}}
+  const body = asRecord(request.body);
+{{#each fields}}
+{{#if required}}
+  const {{name}} = require{{{kindPascal}}}(body[{{{json name}}}], {{{json name}}});
+{{else}}
+  const {{name}} = optional{{{kindPascal}}}(body[{{{json name}}}], {{{json name}}});
+{{/if}}
+{{/each}}
+{{/if}}
+  return { status: 200, body: await client.{{{functionName}}}({{{callArgs}}}) };
+}
+
+{{/each}}
+export function routes(client: {{{clientClassName}}}): Route[] {
+  return [
+{{#each emitted}}
+    {
+      method: {{{json method}}},
+      path: {{{json routePath}}},
+      name: {{{json name}}},
+      handler: (request) => {{{handlerName}}}(client, request),
+    },
+{{/each}}
+  ];
+}
