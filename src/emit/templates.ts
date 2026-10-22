@@ -21,6 +21,7 @@ const TEMPLATE_FILES: Record<TemplateId, string> = {
   readme: 'README.md.hbs',
   webhook_tests: 'webhook_tests.ts.hbs',
   sandbox_tests: 'sandbox_tests.ts.hbs',
+  server: 'server.ts.hbs',
 };
 
 /** The universal template directory, resolved for both src/ and dist/ runners. */

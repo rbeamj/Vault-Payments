@@ -24,6 +24,7 @@ export const TEMPLATE_IDS = [
   'readme',
   'webhook_tests',
   'sandbox_tests',
+  'server',
 ] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
@@ -164,6 +165,11 @@ function buildFilePlan(manifest: Manifest, hasEmittedOperations: boolean): Plann
       path: 'src/event-store.ts',
       template: 'event_store',
       description: 'Durable event store with a real unique constraint',
+    },
+    {
+      path: 'bin/server.ts',
+      template: 'server',
+      description: 'Zero-dependency node:http host: mounts all routes plus the webhook on :3000',
     },
     {
       path: 'RECONCILIATION.md',

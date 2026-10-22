@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "node --env-file-if-exists=.env --import tsx --test \"tests/**/*.test.ts\""
+    "test": "node --env-file-if-exists=.env --import tsx --test \"tests/**/*.test.ts\"",
+    "start": "node --env-file-if-exists=.env --import tsx bin/server.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
