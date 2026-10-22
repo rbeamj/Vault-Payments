@@ -42,6 +42,11 @@ auth:
       secret: true
       env: STRIPE_WEBHOOK_SECRET
       description: Endpoint signing secret (`whsec_…`) used to verify inbound webhooks.
+    - name: publishable_key
+      required: true
+      secret: false
+      env: STRIPE_PUBLISHABLE_KEY
+      description: Publishable key (`pk_test_…`) for the browser tokenization component. Not a secret.
 
 capabilities:
   payment.create:
@@ -127,13 +132,36 @@ webhooks:
   signature:
     header: Stripe-Signature
     algorithm: hmac-sha256
-    signed_payload: "timestamp.raw_body"
+    encoding: hex
+    signed_payload: "{timestamp}.{raw_body}"
+    header_format:
+      type: key_value_pairs
+      timestamp_key: t
+      signature_key: v1
+    tolerance_seconds: 300
+    # References auth.credential_fields[].name above.
+    secret: webhook_secret
+  event_id_field: id
+  event_type_field: type
   retry_window: "72h"
   replay_protection: manual
   notes: >-
     Header carries `t=<timestamp>,v1=<signature>`. There is no automatic replay:
     use the events list or a dashboard resend, and dedupe on the event id.
   source: https://docs.stripe.com/webhooks
+
+tokenization:
+  # Hosted fields: card data is entered into provider-hosted inputs and never
+  # reaches this server. The script is loaded from the provider's own CDN and
+  # is never bundled or copied.
+  kind: hosted_fields
+  script_url: https://js.stripe.com/v3/
+  global_name: Stripe
+  publishable_key: publishable_key
+  mount:
+    card: "#card-element"
+  submit_target: "#payment-form"
+  route: /payments/authorize
 
 sandbox:
   access: self_serve

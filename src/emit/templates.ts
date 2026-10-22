@@ -8,12 +8,19 @@ import type { TemplateId } from '../planner/plan.js';
 const TEMPLATE_FILES: Record<TemplateId, string> = {
   package_json: 'package.json.hbs',
   tsconfig: 'tsconfig.json.hbs',
+  gitignore: 'gitignore.hbs',
   env_example: 'env.example.hbs',
   types: 'types.ts.hbs',
   config: 'config.ts.hbs',
   client: 'client.ts.hbs',
   routes: 'routes.ts.hbs',
+  webhooks: 'webhooks.ts.hbs',
+  event_store: 'event-store.ts.hbs',
+  tokenize: 'tokenize.js.hbs',
+  reconciliation: 'reconciliation.md.hbs',
   readme: 'README.md.hbs',
+  webhook_tests: 'webhook_tests.ts.hbs',
+  sandbox_tests: 'sandbox_tests.ts.hbs',
 };
 
 /** The universal template directory, resolved for both src/ and dist/ runners. */

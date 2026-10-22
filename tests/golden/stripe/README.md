@@ -45,6 +45,7 @@ work.
 |----------|----------|--------|---------|
 | `STRIPE_SECRET_KEY` | yes | yes | Secret API key. `sk_test_…` in sandbox, `sk_live_…` in production. |
 | `STRIPE_WEBHOOK_SECRET` | yes | yes | Endpoint signing secret (`whsec_…`) used to verify inbound webhooks. |
+| `STRIPE_PUBLISHABLE_KEY` | yes | no | Publishable key (`pk_test_…`) for the browser tokenization component. Not a secret. |
 | `VAULT_ENVIRONMENT` | no | no | Target environment: 'sandbox' (default) or 'live'. |
 | `VAULT_ALLOW_LIVE` | no | no | Must be 'true' to permit the live base URL. Refused otherwise. |
 
@@ -66,9 +67,9 @@ required before the live base URL is used, and sandbox is the default.
 |----------|-------|
 | Registration | dashboard |
 | Verification | hmac_local |
-| Signature header | `Stripe-Signature` |
-| Algorithm | `hmac-sha256` |
-| Signed payload | `timestamp.raw_body` |
+| Signature header | — |
+| Algorithm | — |
+| Signed payload | — |
 | Notification URL bound | no |
 | Retry window | 72h |
 | Replay protection | manual |

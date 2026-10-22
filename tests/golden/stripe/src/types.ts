@@ -86,3 +86,10 @@ export class UnsupportedCapabilityError extends Error {
     }
   }
 }
+
+/** A provider event extracted from a verified webhook payload. */
+export interface WebhookEvent {
+  id: string;
+  type: string;
+  payload: Record<string, unknown>;
+}

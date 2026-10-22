@@ -9,6 +9,8 @@ export interface Config {
   secretKey: string;
   /** Endpoint signing secret (`whsec_…`) used to verify inbound webhooks. */
   webhookSecret: string;
+  /** Publishable key (`pk_test_…`) for the browser tokenization component. Not a secret. */
+  publishableKey: string;
   /** Base URL for the selected environment. */
   baseUrl: string;
   /** 'sandbox' unless VAULT_ENVIRONMENT says otherwise. */
@@ -44,6 +46,10 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   if (webhookSecret === undefined) {
     missing.push("STRIPE_WEBHOOK_SECRET");
   }
+  const publishableKey = read(env, "STRIPE_PUBLISHABLE_KEY");
+  if (publishableKey === undefined) {
+    missing.push("STRIPE_PUBLISHABLE_KEY");
+  }
 
   if (missing.length > 0) {
     throw new ConfigurationError(
@@ -71,6 +77,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     secretKey: secretKey!,
     webhookSecret: webhookSecret!,
+    publishableKey: publishableKey!,
     baseUrl,
     environment,
   };

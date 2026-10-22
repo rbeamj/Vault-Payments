@@ -1,0 +1,322 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vault-payments.dev/schemas/provider-manifest.json",
+  "title": "Vault-Payments provider manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "display_name",
+    "strategy",
+    "surface",
+    "regions",
+    "endpoints",
+    "request",
+    "auth",
+    "capabilities",
+    "operations",
+    "terminals",
+    "webhooks",
+    "sandbox",
+    "approval",
+    "attribution",
+    "distribution",
+    "sources",
+    "verified_at"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "description": "Stable provider identifier, lowercase snake_case."
+    },
+    "display_name": { "type": "string", "minLength": 1 },
+    "strategy": {
+      "const": "native",
+      "description": "The only runtime strategy. Prism is never emitted."
+    },
+    "surface": {
+      "enum": ["default", "hosted_checkout", "platform"],
+      "description": "Some providers expose several integration surfaces with different auth and webhook schemes."
+    },
+    "oracle_connector": {
+      "type": "string",
+      "description": "Optional Prism connector id used only by the build-time conformance oracle."
+    },
+    "regions": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "pattern": "^[A-Z]{2}$" }
+    },
+    "summary": { "type": "string" },
+    "endpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["live", "sandbox"],
+      "properties": {
+        "live": { "type": "string", "format": "uri" },
+        "sandbox": { "type": "string", "format": "uri" }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["encoding"],
+      "properties": {
+        "encoding": {
+          "enum": ["form", "json"],
+          "description": "How request bodies are serialised. Some providers take form-encoded bodies with bracket notation, not JSON."
+        }
+      }
+    },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "oauth_required_for_seller_context", "credential_fields"],
+      "properties": {
+        "model": {
+          "enum": ["bearer", "api_key", "oauth2_client_credentials", "signature"]
+        },
+        "oauth_required_for_seller_context": { "type": "boolean" },
+        "header": { "type": "string" },
+        "credential_fields": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "required", "secret", "env"],
+            "properties": {
+              "name": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$" },
+              "required": { "type": "boolean" },
+              "secret": { "type": "boolean" },
+              "env": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "payment.create": { "$ref": "#/$defs/capability" },
+        "payment.authorize": { "$ref": "#/$defs/capability" },
+        "payment.capture": { "$ref": "#/$defs/capability" },
+        "payment.void": { "$ref": "#/$defs/capability" },
+        "payment.refund": { "$ref": "#/$defs/capability" },
+        "payment.status": { "$ref": "#/$defs/capability" },
+        "idempotency": { "$ref": "#/$defs/capability" }
+      }
+    },
+    "operations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "authorize": { "$ref": "#/$defs/operation" },
+        "capture": { "$ref": "#/$defs/operation" },
+        "void": { "$ref": "#/$defs/operation" },
+        "refund": { "$ref": "#/$defs/operation" },
+        "status": { "$ref": "#/$defs/operation" }
+      }
+    },
+    "terminals": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["physical_terminal", "tap_to_pay_mobile"],
+      "properties": {
+        "physical_terminal": { "$ref": "#/$defs/status" },
+        "tap_to_pay_mobile": { "$ref": "#/$defs/status" },
+        "notes": { "type": "string" }
+      }
+    },
+    "webhooks": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["registration", "verification", "notification_url_binding"],
+      "properties": {
+        "registration": { "enum": ["api", "dashboard", "none"] },
+        "verification": {
+          "enum": ["hmac_local", "static_secret_header", "remote_verify", "unsigned_allowlist"],
+          "description": "Mandatory. `unsigned_allowlist` must be explicit and forces a generated warning."
+        },
+        "notification_url_binding": { "type": "boolean" },
+        "signature": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["header", "algorithm", "signed_payload", "header_format", "secret"],
+          "properties": {
+            "header": { "type": "string" },
+            "algorithm": { "enum": ["hmac-sha256", "hmac-sha512"] },
+            "encoding": { "enum": ["hex", "base64"] },
+            "signed_payload": {
+              "type": "string",
+              "description": "Template with {timestamp}, {raw_body} and {notification_url} placeholders."
+            },
+            "header_format": { "$ref": "#/$defs/signatureHeaderFormat" },
+            "tolerance_seconds": { "type": "integer", "minimum": 0 },
+            "secret": {
+              "type": "string",
+              "description": "Credential field name holding the signing secret."
+            }
+          }
+        },
+        "event_id_field": { "type": "string" },
+        "event_type_field": { "type": "string" },
+        "retry_window": { "type": "string" },
+        "replay_protection": { "enum": ["automatic", "manual", "none"] },
+        "notes": { "type": "string" },
+        "source": { "type": "string", "format": "uri" }
+      }
+    },
+    "tokenization": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "script_url", "global_name", "publishable_key", "mount", "submit_target", "route"],
+      "properties": {
+        "kind": { "enum": ["hosted_fields", "none"] },
+        "script_url": { "type": "string", "format": "uri" },
+        "global_name": { "type": "string", "minLength": 1 },
+        "publishable_key": { "type": "string" },
+        "mount": {
+          "type": "object",
+          "minProperties": 1,
+          "additionalProperties": { "type": "string" }
+        },
+        "submit_target": { "type": "string" },
+        "route": { "type": "string" }
+      }
+    },
+    "sandbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["access"],
+      "properties": {
+        "access": { "enum": ["self_serve", "partner_gated"] },
+        "notes": { "type": "string" }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["partner_program", "app_review"],
+      "properties": {
+        "partner_program": { "type": "boolean" },
+        "app_review": { "type": "boolean" },
+        "notes": { "type": "string" }
+      }
+    },
+    "attribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["required_fields"],
+      "properties": {
+        "required_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "notes": { "type": "string" }
+      }
+    },
+    "distribution": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["vendor_sdk"],
+      "properties": {
+        "vendor_sdk": { "enum": ["prohibited", "allowed"] }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "format": "uri" }
+    },
+    "verified_at": {
+      "type": "string",
+      "format": "date",
+      "description": "Date the capability claims were last checked against the sources."
+    }
+  },
+  "$defs": {
+    "status": { "enum": ["verified", "partial", "unsupported", "unknown"] },
+    "signatureHeaderFormat": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type", "timestamp_key", "signature_key"],
+          "properties": {
+            "type": { "const": "key_value_pairs" },
+            "timestamp_key": { "type": "string", "minLength": 1 },
+            "signature_key": { "type": "string", "minLength": 1 }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["type"],
+          "properties": { "type": { "const": "single" } }
+        }
+      ]
+    },
+    "capability": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status"],
+      "properties": {
+        "status": { "$ref": "#/$defs/status" },
+        "notes": { "type": "string" },
+        "source": { "type": "string", "format": "uri" }
+      }
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["capability", "method", "path", "idempotency"],
+      "properties": {
+        "capability": {
+          "enum": [
+            "payment.create",
+            "payment.authorize",
+            "payment.capture",
+            "payment.void",
+            "payment.refund",
+            "payment.status",
+            "idempotency"
+          ]
+        },
+        "method": { "enum": ["GET", "POST", "PUT", "PATCH", "DELETE"] },
+        "path": { "type": "string", "pattern": "^/" },
+        "idempotency": { "enum": ["header", "body_field", "none", "unknown"] },
+        "idempotency_field": { "type": "string" },
+        "body": {
+          "type": "object",
+          "additionalProperties": { "$ref": "#/$defs/bodyMapping" }
+        }
+      }
+    },
+    "bodyMapping": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from"],
+          "properties": {
+            "from": {
+              "enum": ["id", "amount", "currency", "reference", "metadata"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["const"],
+          "properties": {
+            "const": { "type": ["string", "number", "boolean"] }
+          }
+        }
+      ]
+    }
+  }
+}

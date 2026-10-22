@@ -155,13 +155,30 @@ export interface AuthCredentialView {
   model: string;
 }
 
+export interface WebhookSignatureView {
+  header: string;
+  algorithm: string;
+  encoding: string;
+  signedPayload: string;
+  headerFormatType: string;
+  /** Header key holding the timestamp, e.g. `t`. */
+  timestampKey?: string;
+  /** Header key holding the signature, e.g. `v1`. */
+  signatureKey?: string;
+  toleranceSeconds?: number;
+  /** camelCase config property holding the signing secret. */
+  secretProperty: string;
+  /** Environment variable the secret is read from. */
+  secretEnv: string;
+}
+
 export interface WebhookView {
   registration: string;
   verification: string;
   notificationUrlBinding: boolean;
-  header?: string;
-  algorithm?: string;
-  signedPayload?: string;
+  signature?: WebhookSignatureView;
+  eventIdField?: string;
+  eventTypeField?: string;
   retryWindow?: string;
   replayProtection?: string;
   notes?: string;
@@ -170,6 +187,23 @@ export interface WebhookView {
   unsigned: boolean;
   /** True when verification is not a local HMAC. */
   notLocalHmac: boolean;
+  /** True when the signed string includes the callback URL. */
+  urlBound: boolean;
+}
+
+export interface TokenizationView {
+  kind: string;
+  scriptUrl: string;
+  globalName: string;
+  /** camelCase config property holding the publishable key. */
+  publishableKeyProperty: string;
+  publishableKeyEnv: string;
+  /** Mount points as a selector → element map, for direct JSON emission. */
+  mountMap: Record<string, string>;
+  /** Mount points: CSS selector → element type. */
+  mount: Array<{ selector: string; element: string }>;
+  submitTarget: string;
+  route: string;
 }
 
 export interface EnvVarView {
@@ -185,6 +219,10 @@ export interface EnvVarView {
 
 export interface ViewModel {
   clientClassName: string;
+  /** Route path for the webhook endpoint, derived from the provider id. */
+  webhookRoutePath: string;
+  /** Environment variable holding the credential that signs outbound requests. */
+  secretKeyEnv: string;
   provider: {
     id: string;
     displayName: string;
@@ -212,6 +250,7 @@ export interface ViewModel {
   stubs: OperationView[];
   capabilities: CapabilityView[];
   webhook: WebhookView;
+  tokenization?: TokenizationView;
   terminals: { physical: string; tapToPay: string; notes?: string };
   attribution: { requiredFields: string[]; notes?: string };
   distribution: { vendorSdk: string };
@@ -362,19 +401,69 @@ function toCapabilityView(manifest: Manifest): CapabilityView[] {
 function toWebhookView(manifest: Manifest): WebhookView {
   const webhooks = manifest.webhooks;
   const signature = webhooks.signature;
+  const credentials = new Map(
+    manifest.auth.credential_fields.map((field) => [field.name, field]),
+  );
+
+  let signatureView: WebhookSignatureView | undefined;
+  if (signature) {
+    const credential = signature.secret ? credentials.get(signature.secret) : undefined;
+    const format = signature.header_format;
+    signatureView = {
+      header: signature.header ?? '',
+      algorithm: signature.algorithm ?? 'hmac-sha256',
+      encoding: signature.encoding ?? 'hex',
+      signedPayload: signature.signed_payload ?? '',
+      headerFormatType: format?.type ?? 'single',
+      ...(format?.type === 'key_value_pairs'
+        ? { timestampKey: format.timestamp_key, signatureKey: format.signature_key }
+        : {}),
+      ...(signature.tolerance_seconds !== undefined
+        ? { toleranceSeconds: signature.tolerance_seconds }
+        : {}),
+      secretProperty: camelCase(credential?.name ?? signature.secret ?? ''),
+      secretEnv: credential?.env ?? '',
+    };
+  }
+
   return {
     registration: webhooks.registration,
     verification: webhooks.verification,
     notificationUrlBinding: webhooks.notification_url_binding,
-    ...(signature?.header ? { header: signature.header } : {}),
-    ...(signature?.algorithm ? { algorithm: signature.algorithm } : {}),
-    ...(signature?.signed_payload ? { signedPayload: signature.signed_payload } : {}),
+    ...(signatureView ? { signature: signatureView } : {}),
+    ...(webhooks.event_id_field ? { eventIdField: webhooks.event_id_field } : {}),
+    ...(webhooks.event_type_field ? { eventTypeField: webhooks.event_type_field } : {}),
     ...(webhooks.retry_window ? { retryWindow: webhooks.retry_window } : {}),
     ...(webhooks.replay_protection ? { replayProtection: webhooks.replay_protection } : {}),
     ...(webhooks.notes ? { notes: webhooks.notes } : {}),
     ...(webhooks.source ? { source: webhooks.source } : {}),
     unsigned: webhooks.verification === 'unsigned_allowlist',
     notLocalHmac: webhooks.verification !== 'hmac_local',
+    urlBound: webhooks.notification_url_binding,
+  };
+}
+
+function toTokenizationView(manifest: Manifest): TokenizationView | undefined {
+  const tokenization = manifest.tokenization;
+  if (!tokenization) return undefined;
+
+  const credential = manifest.auth.credential_fields.find(
+    (field) => field.name === tokenization.publishable_key,
+  );
+
+  return {
+    kind: tokenization.kind,
+    scriptUrl: tokenization.script_url,
+    globalName: tokenization.global_name,
+    publishableKeyProperty: camelCase(credential?.name ?? tokenization.publishable_key),
+    publishableKeyEnv: credential?.env ?? '',
+    mountMap: { ...tokenization.mount },
+    mount: Object.entries(tokenization.mount).map(([selector, element]) => ({
+      selector,
+      element,
+    })),
+    submitTarget: tokenization.submit_target,
+    route: tokenization.route,
   };
 }
 
@@ -427,8 +516,12 @@ export function buildViewModel(manifest: Manifest, plan: Plan): ViewModel {
     camelName: camelCase(envVar.name),
   }));
 
+  const tokenizationView = toTokenizationView(manifest);
+
   return {
     clientClassName: `${pascalCase(manifest.id)}Client`,
+    secretKeyEnv: authCredentialOf(manifest).env,
+    webhookRoutePath: `/webhooks/${manifest.id}`,
     provider: {
       id: manifest.id,
       displayName: manifest.display_name,
@@ -452,6 +545,7 @@ export function buildViewModel(manifest: Manifest, plan: Plan): ViewModel {
     stubs: operations.filter((operation) => operation.disposition === 'stub'),
     capabilities: toCapabilityView(manifest),
     webhook: toWebhookView(manifest),
+    ...(tokenizationView ? { tokenization: tokenizationView } : {}),
     terminals: {
       physical: manifest.terminals.physical_terminal,
       tapToPay: manifest.terminals.tap_to_pay_mobile,

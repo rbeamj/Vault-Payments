@@ -5,10 +5,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --env-file-if-exists=.env --import tsx --test \"tests/**/*.test.ts\""
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
     "typescript": "^5.7.2"
   }
 }

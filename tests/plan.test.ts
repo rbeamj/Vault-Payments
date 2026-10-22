@@ -45,7 +45,7 @@ describe('plan: the shipped Stripe manifest', () => {
     expect(env).toContain('STRIPE_WEBHOOK_SECRET');
     expect(env).toContain('VAULT_ENVIRONMENT');
     expect(env).toContain('VAULT_ALLOW_LIVE');
-    expect(env.filter((name) => name.startsWith('STRIPE_')).length).toBe(2);
+    expect(env.filter((name) => name.startsWith('STRIPE_')).length).toBe(3);
   });
 
   it('flags that terminal support does not follow processor support', async () => {

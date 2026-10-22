@@ -1,0 +1,274 @@
+// GENERATED FILE — do not edit by hand.
+//
+// Webhook handling. The security order below is fixed and must not change:
+//
+//   1. verify the signature BEFORE parsing the payload
+//   2. reject stale timestamps (replay window)
+//   3. deduplicate on the provider event id via a durable unique constraint
+//   4. persist before acknowledging
+//   5. process asynchronously — never inside the request
+//
+// Business logic belongs to `onEvent`, which runs after the event is durable.
+// The HTTP response must never depend on whether business logic succeeded.
+
+import { createHmac, timingSafeEqual } from 'node:crypto';
+import type { Config } from './config.js';
+import type { WebhookEvent } from './types.js';
+import { EventStore } from './event-store.js';
+
+export interface WebhookRequest {
+  /**
+   * RAW body exactly as received on the wire, before any JSON parsing.
+   *
+   * The signature covers these bytes, so a framework that re-serialises the
+   * parsed object will break verification. Read the raw body first.
+   */
+  rawBody: string;
+  headers: Record<string, string | undefined>;
+  /**
+   * Only used when the provider signs the callback URL. Ignored otherwise.
+   */
+  notificationUrl?: string;
+}
+
+export interface WebhookResponse {
+  status: number;
+  body: unknown;
+}
+
+export interface WebhookDependencies {
+  config: Config;
+  store: EventStore;
+  /**
+   * Business logic for a newly accepted event. Called once, after the event is
+   * durable, and never awaited by the handler.
+   */
+  onEvent?: (event: WebhookEvent) => Promise<void>;
+  /** Injectable clock for tests. */
+  now?: () => number;
+}
+
+const SIGNATURE_HEADER: string = {{{json webhook.signature.header}}};
+const ALGORITHM: string = {{{json webhook.signature.algorithm}}};
+const SIGNATURE_ENCODING: string = {{{json webhook.signature.encoding}}};
+const SIGNED_PAYLOAD_TEMPLATE: string = {{{json webhook.signature.signedPayload}}};
+const HEADER_FORMAT: string = {{{json webhook.signature.headerFormatType}}};
+const TIMESTAMP_KEY: string = {{{json webhook.signature.timestampKey}}};
+const SIGNATURE_KEY: string = {{{json webhook.signature.signatureKey}}};
+const TOLERANCE_SECONDS: number = {{{webhook.signature.toleranceSeconds}}};
+const EVENT_ID_FIELD: string = {{{json webhook.eventIdField}}};
+const EVENT_TYPE_FIELD: string = {{{json webhook.eventTypeField}}};
+
+export interface VerificationResult {
+  ok: boolean;
+  reason?: string;
+}
+
+interface ParsedSignature {
+  timestamp?: string;
+  signatures: string[];
+}
+
+/** Parses the signature header according to the provider's declared format. */
+export function parseSignatureHeader(header: string): ParsedSignature {
+  if (HEADER_FORMAT === 'key_value_pairs') {
+    let timestamp: string | undefined;
+    const signatures: string[] = [];
+
+    for (const part of header.split(',')) {
+      const separator = part.indexOf('=');
+      if (separator === -1) continue;
+      const key = part.slice(0, separator).trim();
+      const value = part.slice(separator + 1).trim();
+      if (!value) continue;
+      if (key === TIMESTAMP_KEY) {
+        timestamp = value;
+      } else if (key === SIGNATURE_KEY) {
+        signatures.push(value);
+      }
+    }
+
+    return { timestamp, signatures };
+  }
+
+  const value = header.trim();
+  return value ? { signatures: [value] } : { signatures: [] };
+}
+
+/** Builds the exact string the provider signed. */
+export function buildSignedPayload(
+  parts: { timestamp: string; rawBody: string; notificationUrl?: string },
+): string {
+  return SIGNED_PAYLOAD_TEMPLATE.replaceAll('{timestamp}', parts.timestamp)
+    .replaceAll('{raw_body}', parts.rawBody)
+    .replaceAll('{notification_url}', parts.notificationUrl ?? '');
+}
+
+function hmac(secret: string, payload: string): Buffer {
+  const algorithm = ALGORITHM === 'hmac-sha512' ? 'sha512' : 'sha256';
+  return createHmac(algorithm, secret).update(payload, 'utf8').digest();
+}
+
+/**
+ * Constant-time comparison.
+ *
+ * Buffer lengths are compared first; `timingSafeEqual` throws on unequal
+ * lengths, and an early `return false` on length is not a timing leak because
+ * the length is already public knowledge from the header.
+ */
+export function safeEqual(a: Buffer, b: Buffer): boolean {
+  if (a.length !== b.length) {
+    return false;
+  }
+  return timingSafeEqual(a, b);
+}
+
+/**
+ * Verify the signature. Call this BEFORE parsing the payload.
+ *
+ * A tampered payload must never reach `JSON.parse`, and a request older than
+ * the replay window must be rejected even if correctly signed.
+ */
+export function verifyWebhookSignature(
+  rawBody: string,
+  signatureHeader: string | undefined,
+  config: Config,
+  now: number = Date.now(),
+): VerificationResult {
+  if (!signatureHeader) {
+    return { ok: false, reason: `Missing ${SIGNATURE_HEADER} header.` };
+  }
+
+  const parsed = parseSignatureHeader(signatureHeader);
+  if (parsed.signatures.length === 0) {
+    return { ok: false, reason: `No signature value in ${SIGNATURE_HEADER}.` };
+  }
+  if (parsed.timestamp === undefined) {
+    return { ok: false, reason: 'No timestamp in the signature header.' };
+  }
+
+  const sentAt = Number(parsed.timestamp);
+  // Header timestamps are in seconds; the injectable clock is in milliseconds.
+  const ageSeconds = Math.floor(now / 1000) - sentAt;
+  if (!Number.isFinite(ageSeconds) || Math.abs(ageSeconds) > TOLERANCE_SECONDS) {
+    return {
+      ok: false,
+      reason: `Signature timestamp outside the ${TOLERANCE_SECONDS}s replay window.`,
+    };
+  }
+
+  const signedPayload = buildSignedPayload({
+    timestamp: parsed.timestamp,
+    rawBody,
+    notificationUrl: '',
+  });
+  const expected = hmac(config.{{{webhook.signature.secretProperty}}}, signedPayload);
+
+  for (const candidate of parsed.signatures) {
+    const provided = Buffer.from(candidate, SIGNATURE_ENCODING as 'hex' | 'base64');
+    if (safeEqual(provided, expected)) {
+      return { ok: true };
+    }
+  }
+
+  return { ok: false, reason: 'Signature mismatch.' };
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function readField(record: Record<string, unknown>, field: string | undefined): string {
+  if (!field) return '';
+  const parts = field.split('.');
+  let current: unknown = record;
+  for (const part of parts) {
+    if (typeof current !== 'object' || current === null) return '';
+    current = (current as Record<string, unknown>)[part];
+  }
+  return typeof current === 'string' ? current : '';
+}
+
+/**
+ * Create the webhook route handler.
+ *
+ * The handler verifies, deduplicates and persists, then acknowledges. It never
+ * runs business logic inside the request and never returns an error because
+ * business logic failed — that would make the provider retry an event that is
+ * already durably stored.
+ */
+export function createWebhookHandler(
+  dependencies: WebhookDependencies,
+): (request: WebhookRequest) => Promise<WebhookResponse> {
+  const { config, store, onEvent } = dependencies;
+  const now = dependencies.now ?? (() => Date.now());
+
+  return async (request: WebhookRequest): Promise<WebhookResponse> => {
+{{#if webhook.unsigned}}
+    // UNSIGNED webhooks. The payload cannot be authenticated; the only
+    // protections are source allowlisting and a server-side status check
+    // before fulfilment. Never trust these events on their own.
+    void request.headers;
+{{else}}
+    const verification = verifyWebhookSignature(
+      request.rawBody,
+      findHeader(request.headers, SIGNATURE_HEADER),
+      config,
+      now(),
+    );
+
+    if (!verification.ok) {
+      return { status: 400, body: { error: 'invalid_signature', reason: verification.reason } };
+    }
+{{/if}}
+
+    let payload: unknown;
+    try {
+      payload = JSON.parse(request.rawBody);
+    } catch {
+      return { status: 400, body: { error: 'invalid_payload', reason: 'Body is not valid JSON.' } };
+    }
+
+    const record = asRecord(payload);
+    const eventId = readField(record, EVENT_ID_FIELD);
+    const eventType = readField(record, EVENT_TYPE_FIELD);
+
+    if (!eventId) {
+      return { status: 400, body: { error: 'invalid_payload', reason: `Missing event id at "${EVENT_ID_FIELD}".` } };
+    }
+
+    // Durable dedupe: a real unique constraint, not an in-memory set. A
+    // repeated delivery returns success without reprocessing.
+    const recorded = store.record(eventId, eventType, request.rawBody);
+    if (!recorded) {
+      return { status: 200, body: { received: true, duplicate: true } };
+    }
+
+    if (onEvent) {
+      const event: WebhookEvent = { id: eventId, type: eventType, payload: record };
+      // Fire and forget, deliberately. Failures are recorded on the event so
+      // reconciliation can find them; they never affect the HTTP response.
+      void onEvent(event).catch(async (error: unknown) => {
+        await store.markFailed(eventId, (error as Error).message);
+      });
+    }
+
+    return { status: 200, body: { received: true, duplicate: false } };
+  };
+}
+
+/** HTTP headers are case-insensitive; frameworks disagree on what they hand you. */
+export function findHeader(
+  headers: Record<string, string | undefined>,
+  name: string,
+): string | undefined {
+  const target = name.toLowerCase();
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === target && value !== undefined) {
+      return value;
+    }
+  }
+  return undefined;
+}

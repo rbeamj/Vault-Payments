@@ -13,12 +13,19 @@ import type {
   RefundRequest,
 } from './types.js';
 import type { StripeClient } from './client.js';
+import { createWebhookHandler, type WebhookDependencies } from './webhooks.js';
 
 export interface RouteRequest {
   /** Path parameters, already decoded by the host framework. */
   params?: Record<string, string | undefined>;
   /** Parsed JSON body, if any. */
   body?: unknown;
+  /**
+   * RAW request body. Required by the webhook route: the signature covers
+   * these bytes, so a re-serialised object cannot be verified.
+   */
+  rawBody?: string;
+  headers?: Record<string, string | undefined>;
 }
 
 export interface RouteResponse {
@@ -172,4 +179,34 @@ export function routes(client: StripeClient): Route[] {
       handler: (request) => handleStatus(client, request),
     },
   ];
+}
+
+/**
+ * The webhook route.
+ *
+ * Mount this at the URL registered with the provider, and make sure your HTTP
+ * layer supplies `rawBody` — a framework that parses JSON before the handler
+ * runs will break signature verification.
+ */
+export function webhookRoute(dependencies: WebhookDependencies): Route {
+  const handler = createWebhookHandler(dependencies);
+  return {
+    method: 'POST',
+    path: "/webhooks/stripe",
+    name: 'webhook',
+    handler: (request) =>
+      handler({
+        rawBody: request.rawBody ?? '',
+        headers: request.headers ?? {},
+        notificationUrl: request.headers?.['x-forwarded-url'],
+      }),
+  };
+}
+
+/** Every route this integration serves: payment operations plus the webhook. */
+export function allRoutes(
+  client: StripeClient,
+  webhookDependencies: WebhookDependencies,
+): Route[] {
+  return [...routes(client), webhookRoute(webhookDependencies)];
 }

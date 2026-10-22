@@ -36,7 +36,6 @@ share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
-MANIFEST
 
 # PyInstaller
 #   Usually these files are written by a python script from a template
@@ -162,7 +161,12 @@ activemq-data/
 *.sage.py
 
 # Environments
+# Secrets are read from the environment at runtime and are never committed.
+# `.env.example` is the committed template; every other `.env*` variant is a
+# real-secret file and must never be tracked.
 .env
+.env.*
+!.env.example
 .envrc
 .venv
 env/
@@ -170,6 +174,17 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+
+# Credentials and key material of any shape
+*.pem
+*.key
+*.p12
+*.pfx
+*credentials*
+*secret*
+secrets/
+# Do not let the catch-alls hide the very guards that test them.
+!tests/secrets.test.ts
 
 # Spyder project settings
 .spyderproject

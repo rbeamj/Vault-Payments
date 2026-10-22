@@ -150,6 +150,7 @@ describe('oracle: emitted adapter request construction', () => {
     const config = emitted.loadConfig({
       STRIPE_SECRET_KEY: 'sk_test_oracle_reference',
       STRIPE_WEBHOOK_SECRET: 'whsec_oracle_reference',
+      STRIPE_PUBLISHABLE_KEY: 'pk_test_oracle_reference',
     });
 
     const built = emitted.buildRequest(config, {
@@ -186,6 +187,7 @@ describe('oracle: emitted adapter request construction', () => {
     const config = emitted.loadConfig({
       STRIPE_SECRET_KEY: 'sk_test_oracle_reference',
       STRIPE_WEBHOOK_SECRET: 'whsec_oracle_reference',
+      STRIPE_PUBLISHABLE_KEY: 'pk_test_oracle_reference',
     });
 
     // A deliberately wrong reference: capture_method missing. The oracle must

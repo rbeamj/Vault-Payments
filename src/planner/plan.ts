@@ -11,12 +11,19 @@ import {
 export const TEMPLATE_IDS = [
   'package_json',
   'tsconfig',
+  'gitignore',
   'env_example',
   'types',
   'config',
   'client',
   'routes',
+  'webhooks',
+  'event_store',
+  'tokenize',
+  'reconciliation',
   'readme',
+  'webhook_tests',
+  'sandbox_tests',
 ] as const;
 
 export type TemplateId = (typeof TEMPLATE_IDS)[number];
@@ -98,48 +105,101 @@ export interface Plan {
   warnings: string[];
 }
 
-const FILE_PLAN: ReadonlyArray<PlannedFile> = [
-  {
-    path: 'package.json',
-    template: 'package_json',
-    description: 'Generated project manifest (no runtime dependencies)',
-  },
-  {
-    path: 'tsconfig.json',
-    template: 'tsconfig',
-    description: 'TypeScript configuration for the generated project',
-  },
-  {
-    path: '.env.example',
-    template: 'env_example',
-    description: 'Required environment variables, with no secret values',
-  },
-  {
-    path: 'src/types.ts',
-    template: 'types',
-    description: 'Shared request/response types for the canonical interface',
-  },
-  {
-    path: 'src/config.ts',
-    template: 'config',
-    description: 'Fail-closed configuration loader',
-  },
-  {
-    path: 'src/client.ts',
-    template: 'client',
-    description: 'Typed provider client over direct HTTPS',
-  },
-  {
-    path: 'src/routes.ts',
-    template: 'routes',
-    description: 'Framework-agnostic route handlers',
-  },
-  {
-    path: 'README.md',
-    template: 'readme',
-    description: 'Integration guide, capability matrix, reconciliation notes',
-  },
-];
+/**
+ * The file plan.
+ *
+ * Two entries are conditional, and both conditions are data:
+ *  - `public/tokenize.js` is emitted only when the manifest declares tokenization;
+ *  - sandbox contract tests are emitted only when at least one operation emits
+ *    working code — testing a stub against a live API would be dishonest.
+ */
+function buildFilePlan(manifest: Manifest, hasEmittedOperations: boolean): PlannedFile[] {
+  const files: PlannedFile[] = [
+    {
+      path: 'package.json',
+      template: 'package_json',
+      description: 'Generated project manifest (no runtime dependencies)',
+    },
+    {
+      path: 'tsconfig.json',
+      template: 'tsconfig',
+      description: 'TypeScript configuration for the generated project',
+    },
+    {
+      path: '.gitignore',
+      template: 'gitignore',
+      description: 'Keeps .env and key material out of the generated repository',
+    },
+    {
+      path: '.env.example',
+      template: 'env_example',
+      description: 'Required environment variables, with no secret values',
+    },
+    {
+      path: 'src/types.ts',
+      template: 'types',
+      description: 'Shared request/response and webhook event types',
+    },
+    {
+      path: 'src/config.ts',
+      template: 'config',
+      description: 'Fail-closed configuration loader',
+    },
+    {
+      path: 'src/client.ts',
+      template: 'client',
+      description: 'Typed provider client over direct HTTPS',
+    },
+    {
+      path: 'src/routes.ts',
+      template: 'routes',
+      description: 'Framework-agnostic route handlers, including the webhook route',
+    },
+    {
+      path: 'src/webhooks.ts',
+      template: 'webhooks',
+      description: 'Signature verification, dedupe and persist-then-ack handling',
+    },
+    {
+      path: 'src/event-store.ts',
+      template: 'event_store',
+      description: 'Durable event store with a real unique constraint',
+    },
+    {
+      path: 'RECONCILIATION.md',
+      template: 'reconciliation',
+      description: 'How to detect a missed webhook and re-fetch authoritative state',
+    },
+    {
+      path: 'README.md',
+      template: 'readme',
+      description: 'Integration guide, capability matrix, security and run notes',
+    },
+    {
+      path: 'tests/webhooks.test.ts',
+      template: 'webhook_tests',
+      description: 'Fixture-based webhook security tests (no network required)',
+    },
+  ];
+
+  if (manifest.tokenization) {
+    files.push({
+      path: 'public/tokenize.js',
+      template: 'tokenize',
+      description: 'Browser tokenization component; card data never reaches the server',
+    });
+  }
+
+  if (hasEmittedOperations) {
+    files.push({
+      path: 'tests/sandbox.test.ts',
+      template: 'sandbox_tests',
+      description: 'Sandbox contract tests; skip without credentials',
+    });
+  }
+
+  return files;
+}
 
 function planOperation(
   manifest: Manifest,
@@ -289,6 +349,10 @@ export function buildPlan(manifest: Manifest, outDir: string): Plan {
     ...GENERATOR_ENV_VARS.map((envVar) => ({ ...envVar })),
   ];
 
+  const hasEmittedOperations = operations.some(
+    (planned) => planned.disposition !== 'stub',
+  );
+
   return {
     provider: {
       id: manifest.id,
@@ -300,7 +364,7 @@ export function buildPlan(manifest: Manifest, outDir: string): Plan {
         : {}),
     },
     outDir,
-    files: FILE_PLAN.map((file) => ({ ...file })),
+    files: buildFilePlan(manifest, hasEmittedOperations).map((file) => ({ ...file })),
     envVars,
     operations,
     gaps: operations.filter((planned) => planned.disposition === 'stub'),

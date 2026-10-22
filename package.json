@@ -12,11 +12,12 @@
     "vault-payments": "dist/cli.js"
   },
   "scripts": {
-    "generate": "tsx src/cli.ts",
+    "generate": "node --env-file-if-exists=.env --import tsx src/cli.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "golden:update": "cross-env GOLDEN_UPDATE=1 vitest run"
   },
   "dependencies": {
     "ajv": "^8.17.1",
@@ -25,6 +26,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
+    "cross-env": "^10.1.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
