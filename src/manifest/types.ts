@@ -93,7 +93,14 @@ export interface Auth {
 }
 
 /** Fields the canonical interface exposes to callers. */
-export const CANONICAL_FIELDS = ['id', 'amount', 'currency', 'reference', 'metadata'] as const;
+export const CANONICAL_FIELDS = [
+  'id',
+  'amount',
+  'currency',
+  'payment_method',
+  'reference',
+  'metadata',
+] as const;
 
 export type CanonicalField = (typeof CANONICAL_FIELDS)[number];
 
@@ -119,6 +126,12 @@ export interface Operation {
   idempotency_field?: string;
   /** Maps the canonical request onto the provider's request body. */
   body?: Record<string, BodyMapping>;
+  /**
+   * Provider-documented sandbox token for the emitted contract tests, e.g. a
+   * test-mode payment-method token. Provider data lives here, never in the
+   * universal templates.
+   */
+  sandbox_token?: string;
 }
 
 export interface Capability {

@@ -54,7 +54,11 @@ capabilities:
     source: https://docs.stripe.com/api/payment_intents/create
   payment.authorize:
     status: verified
-    notes: Manual capture. Create a PaymentIntent with capture_method=manual.
+    notes: >-
+      Create+confirm in one call: a PaymentIntent with confirm=true, a
+      frontend-minted payment_method and capture_method=manual. Without
+      confirmation the intent never reaches requires_capture, so capture is
+      refused. Verified live in the partner sandbox with a restricted key.
     source: https://docs.stripe.com/api/payment_intents/create
   payment.capture:
     status: verified
@@ -85,10 +89,21 @@ operations:
     body:
       amount: { from: amount }
       currency: { from: currency }
-      # An authorization is a PaymentIntent that will not be captured automatically.
+      # A Stripe authorization is create+confirm in a single call: without
+      # confirmation the intent only reaches requires_payment_method, and the
+      # provider refuses to capture an unconfirmed intent.
+      confirm: { const: true }
+      payment_method: { from: payment_method }
+      # Card-only. With automatic payment methods (the newer-account default)
+      # a confirmation accepts dashboard-enabled redirect methods, which the
+      # provider then refuses server-side without a return_url.
+      payment_method_types[0]: { const: card }
       capture_method: { const: manual }
       description: { from: reference }
       metadata: { from: metadata }
+    # Provider-documented test token: Stripe's sandbox accepts this constant to
+    # mint a real PaymentMethod without a browser session. Test-mode only.
+    sandbox_token: pm_card_visa
   capture:
     capability: payment.capture
     method: POST

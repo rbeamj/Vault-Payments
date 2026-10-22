@@ -87,17 +87,20 @@
         if (result.error) {
           fail(result.error.message || 'the provider rejected the payment details');
         }
-        if (!tokenInput) {
-          fail('no <input name="payment_token"> found in the form');
+        if (!result.paymentMethod || !result.paymentMethod.id) {
+          fail('the provider returned no payment method token');
         }
-        tokenInput.value = result.paymentMethod ? result.paymentMethod.id : '';
         return fetch(ROUTE, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          // The token is the only payment data this script ever sends. It was
+          // minted inside the provider's hosted field; the server authorizes
+          // with it and cardholder data has never left the provider.
           body: JSON.stringify({
             amount: Number(form.getAttribute('data-amount')),
             currency: form.getAttribute('data-currency'),
-            reference: form.getAttribute('data-reference') || undefined
+            reference: form.getAttribute('data-reference') || undefined,
+            payment_method: result.paymentMethod.id
           })
         });
       })

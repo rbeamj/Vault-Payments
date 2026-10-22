@@ -25,6 +25,8 @@ export interface AuthorizeRequest {
   amount: number;
   /** ISO-4217 code, lower-case (for example "usd"). */
   currency: string;
+  /** Provider payment-method token minted by the browser tokenization component. Never raw cardholder data. */
+  payment_method?: string;
   /** Your own reference for this payment. Never place cardholder data here. */
   reference?: string;
   /** Free-form key/value metadata passed through to the provider. */

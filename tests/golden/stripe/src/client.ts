@@ -178,6 +178,9 @@ export class StripeClient {
       body: {
         amount: request.amount,
         currency: request.currency,
+        confirm: true,
+        payment_method: request.payment_method,
+        "payment_method_types[0]": "card",
         capture_method: "manual",
         description: request.reference,
         metadata: request.metadata,

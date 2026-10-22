@@ -20,7 +20,7 @@ import type {
  * of any processor, so it lives here rather than in a manifest.
  */
 const ACCEPTED_FIELDS: Record<CanonicalOperation, CanonicalField[]> = {
-  authorize: ['amount', 'currency', 'reference', 'metadata'],
+  authorize: ['amount', 'currency', 'payment_method', 'reference', 'metadata'],
   capture: ['amount'],
   void: [],
   refund: ['amount'],
@@ -44,6 +44,11 @@ const FIELD_KINDS: Record<CanonicalField, { kind: FieldKind; tsType: string; doc
     kind: 'string',
     tsType: 'string',
     doc: 'ISO-4217 code, lower-case (for example "usd").',
+  },
+  payment_method: {
+    kind: 'string',
+    tsType: 'string',
+    doc: 'Provider payment-method token minted by the browser tokenization component. Never raw cardholder data.',
   },
   reference: {
     kind: 'string',
@@ -100,6 +105,12 @@ export interface FieldView {
 export interface BodyEntryView {
   /** Provider body field name. */
   field: string;
+  /**
+   * Ready-to-emit TypeScript property key for {@link field}: the raw
+   * identifier when the provider name is a valid one, otherwise a quoted
+   * string (providers use bracket notation such as `types[0]` in places).
+   */
+  keyExpression: string;
   /** TypeScript expression producing the value. */
   expression: string;
 }
@@ -131,6 +142,8 @@ export interface OperationView {
   source?: string;
   idempotencyMode: string;
   idempotencyField?: string;
+  /** Provider-owned sandbox fixture for the emitted contract tests. */
+  sandboxToken?: string;
 }
 
 export interface CapabilityView {
@@ -223,6 +236,12 @@ export interface ViewModel {
   webhookRoutePath: string;
   /** Environment variable holding the credential that signs outbound requests. */
   secretKeyEnv: string;
+  /**
+   * Provider-owned sandbox token for the emitted contract tests (the authorize
+   * operation's `sandbox_token`). Undefined when the provider declares none —
+   * the sandbox tests then exercise the flow without a token.
+   */
+  sandboxToken?: string;
   provider: {
     id: string;
     displayName: string;
@@ -278,18 +297,34 @@ function pathExpressionOf(path: string, params: string[]): string {
   return '`' + interpolated + '`';
 }
 
+/**
+ * A provider field name that is a valid JavaScript identifier can be emitted
+ * as a bare object key; bracket-notation names (`types[0]`) must be quoted.
+ */
+function keyExpressionOf(field: string): string {
+  return /^[A-Za-z_$][A-Za-z0-9_$]*$/u.test(field) ? field : JSON.stringify(field);
+}
+
 function bodyEntriesOf(
   body: Record<string, { from?: CanonicalField; const?: string | number | boolean }> | undefined,
 ): BodyEntryView[] {
   if (!body) return [];
   return Object.entries(body).map(([field, mapping]) => {
     if ('const' in mapping && mapping.const !== undefined) {
-      return { field, expression: JSON.stringify(mapping.const) };
+      return {
+        field,
+        keyExpression: keyExpressionOf(field),
+        expression: JSON.stringify(mapping.const),
+      };
     }
     const from = mapping.from!;
     // A path parameter is a function argument; everything else lives on the
     // canonical request object.
-    return { field, expression: from === 'id' ? 'id' : `request.${from}` };
+    return {
+      field,
+      keyExpression: keyExpressionOf(field),
+      expression: from === 'id' ? 'id' : `request.${from}`,
+    };
   });
 }
 
@@ -382,6 +417,8 @@ function toOperationView(manifest: Manifest, plan: Plan, operation: CanonicalOpe
     ...(planned.source ? { source: planned.source } : {}),
     idempotencyMode: op.idempotency,
     ...(op.idempotency_field ? { idempotencyField: op.idempotency_field } : {}),
+    // Provider-owned sandbox fixture for the emitted contract tests.
+    ...(op.sandbox_token ? { sandboxToken: op.sandbox_token } : {}),
   };
 }
 
@@ -521,6 +558,9 @@ export function buildViewModel(manifest: Manifest, plan: Plan): ViewModel {
   return {
     clientClassName: `${pascalCase(manifest.id)}Client`,
     secretKeyEnv: authCredentialOf(manifest).env,
+    ...(manifest.operations.authorize?.sandbox_token
+      ? { sandboxToken: manifest.operations.authorize.sandbox_token }
+      : {}),
     webhookRoutePath: `/webhooks/${manifest.id}`,
     provider: {
       id: manifest.id,

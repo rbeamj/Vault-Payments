@@ -23,6 +23,9 @@ test('sandbox: authorize a payment', { skip }, async () => {
   const result = await client.authorize({
     amount: 1000,
     currency: 'usd',
+    // The provider's documented sandbox token, from the manifest: minted by
+    // the provider itself, never a cardholder detail.
+    payment_method: "pm_card_visa",
     reference: 'vault-sandbox-authorize',
   });
 
@@ -32,7 +35,7 @@ test('sandbox: authorize a payment', { skip }, async () => {
 
 test('sandbox: capture the authorized payment', { skip }, async () => {
   const client = new StripeClient({ config: loadConfig() });
-  const authorized = await client.authorize({ amount: 1000, currency: 'usd' });
+  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa" });
   const captured = await client.capture(authorized.id, {});
 
   assert.ok(captured.id, 'capture must return an identifier');
@@ -40,7 +43,7 @@ test('sandbox: capture the authorized payment', { skip }, async () => {
 
 test('sandbox: void the authorized payment', { skip }, async () => {
   const client = new StripeClient({ config: loadConfig() });
-  const authorized = await client.authorize({ amount: 1000, currency: 'usd' });
+  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa" });
   const cancelled = await client.void(authorized.id);
 
   assert.ok(cancelled.id, 'void must return an identifier');
@@ -48,7 +51,7 @@ test('sandbox: void the authorized payment', { skip }, async () => {
 
 test('sandbox: refund a captured payment', { skip }, async () => {
   const client = new StripeClient({ config: loadConfig() });
-  const authorized = await client.authorize({ amount: 1000, currency: 'usd' });
+  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa" });
   await client.capture(authorized.id, {});
   const refunded = await client.refund(authorized.id, {});
 
@@ -57,7 +60,7 @@ test('sandbox: refund a captured payment', { skip }, async () => {
 
 test('sandbox: re-fetch payment status', { skip }, async () => {
   const client = new StripeClient({ config: loadConfig() });
-  const authorized = await client.authorize({ amount: 1000, currency: 'usd' });
+  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa" });
   const status = await client.status(authorized.id);
 
   assert.equal(status.id, authorized.id);

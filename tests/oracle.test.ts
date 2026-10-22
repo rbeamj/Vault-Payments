@@ -159,6 +159,9 @@ describe('oracle: emitted adapter request construction', () => {
       body: {
         amount: 1000,
         currency: 'usd',
+        confirm: true,
+        payment_method: 'pm_test',
+        'payment_method_types[0]': 'card',
         capture_method: 'manual',
         description: 'order-1',
         metadata: undefined,
@@ -174,7 +177,7 @@ describe('oracle: emitted adapter request construction', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Idempotency-Key': '<presence-only>',
       },
-      body: 'amount=1000&capture_method=manual&currency=usd&description=order-1',
+      body: 'amount=1000&capture_method=manual&confirm=true&currency=usd&description=order-1&payment_method=pm_test&payment_method_types[0]=card',
     };
 
     const result = diffRequests(expected, built);
@@ -206,7 +209,7 @@ describe('oracle: emitted adapter request construction', () => {
     const built = emitted.buildRequest(config, {
       method: 'POST',
       path: '/v1/payment_intents',
-      body: { amount: 1000, currency: 'usd', capture_method: 'manual' },
+      body: { amount: 1000, currency: 'usd', confirm: true, payment_method: 'pm_test', 'payment_method_types[0]': 'card', capture_method: 'manual' },
       idempotency: { mode: 'header', field: 'Idempotency-Key' },
     });
 
@@ -260,6 +263,9 @@ describe('prism oracle availability', () => {
       body: {
         amount: 1000,
         currency: 'usd',
+        confirm: true,
+        payment_method: 'pm_test',
+        'payment_method_types[0]': 'card',
         capture_method: 'manual',
         description: 'order-1',
       },

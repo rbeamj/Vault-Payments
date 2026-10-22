@@ -293,6 +293,10 @@
         "body": {
           "type": "object",
           "additionalProperties": { "$ref": "#/$defs/bodyMapping" }
+        },
+        "sandbox_token": {
+          "type": "string",
+          "description": "Provider-documented test token usable in the sandbox to exercise this operation's happy path without a network listener."
         }
       }
     },
@@ -304,7 +308,7 @@
           "required": ["from"],
           "properties": {
             "from": {
-              "enum": ["id", "amount", "currency", "reference", "metadata"]
+              "enum": ["id", "amount", "currency", "payment_method", "reference", "metadata"]
             }
           }
         },
