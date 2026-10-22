@@ -164,6 +164,7 @@ describe('oracle: emitted adapter request construction', () => {
         'payment_method_types[0]': 'card',
         capture_method: 'manual',
         description: 'order-1',
+        return_url: 'https://merchant.example/payments/complete',
         metadata: undefined,
       },
       idempotency: { mode: 'header', field: 'Idempotency-Key' },
@@ -177,7 +178,7 @@ describe('oracle: emitted adapter request construction', () => {
         'Content-Type': 'application/x-www-form-urlencoded',
         'Idempotency-Key': '<presence-only>',
       },
-      body: 'amount=1000&capture_method=manual&confirm=true&currency=usd&description=order-1&payment_method=pm_test&payment_method_types[0]=card',
+      body: 'amount=1000&capture_method=manual&confirm=true&currency=usd&description=order-1&payment_method=pm_test&payment_method_types[0]=card&return_url=https%3A%2F%2Fmerchant.example%2Fpayments%2Fcomplete',
     };
 
     const result = diffRequests(expected, built);
@@ -209,7 +210,7 @@ describe('oracle: emitted adapter request construction', () => {
     const built = emitted.buildRequest(config, {
       method: 'POST',
       path: '/v1/payment_intents',
-      body: { amount: 1000, currency: 'usd', confirm: true, payment_method: 'pm_test', 'payment_method_types[0]': 'card', capture_method: 'manual' },
+      body: { amount: 1000, currency: 'usd', confirm: true, payment_method: 'pm_test', 'payment_method_types[0]': 'card', capture_method: 'manual', return_url: 'https://merchant.example/payments/complete' },
       idempotency: { mode: 'header', field: 'Idempotency-Key' },
     });
 
@@ -268,6 +269,7 @@ describe('prism oracle availability', () => {
         'payment_method_types[0]': 'card',
         capture_method: 'manual',
         description: 'order-1',
+        return_url: 'https://merchant.example/payments/complete',
       },
       idempotency: { mode: 'header', field: 'Idempotency-Key' },
     });

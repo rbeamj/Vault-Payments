@@ -106,9 +106,10 @@ async function handleAuthorize(client: StripeClient, request: RouteRequest): Pro
   const amount = requireInteger(body["amount"], "amount");
   const currency = requireString(body["currency"], "currency");
   const payment_method = optionalString(body["payment_method"], "payment_method");
+  const return_url = optionalString(body["return_url"], "return_url");
   const reference = optionalString(body["reference"], "reference");
   const metadata = optionalStringMap(body["metadata"], "metadata");
-  return { status: 200, body: await client.authorize({ amount, currency, payment_method, reference, metadata }) };
+  return { status: 200, body: await client.authorize({ amount, currency, payment_method, return_url, reference, metadata }) };
 }
 
 async function handleCapture(client: StripeClient, request: RouteRequest): Promise<RouteResponse> {

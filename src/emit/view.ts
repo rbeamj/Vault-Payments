@@ -20,7 +20,7 @@ import type {
  * of any processor, so it lives here rather than in a manifest.
  */
 const ACCEPTED_FIELDS: Record<CanonicalOperation, CanonicalField[]> = {
-  authorize: ['amount', 'currency', 'payment_method', 'reference', 'metadata'],
+  authorize: ['amount', 'currency', 'payment_method', 'return_url', 'reference', 'metadata'],
   capture: ['amount'],
   void: [],
   refund: ['amount'],
@@ -49,6 +49,11 @@ const FIELD_KINDS: Record<CanonicalField, { kind: FieldKind; tsType: string; doc
     kind: 'string',
     tsType: 'string',
     doc: 'Provider payment-method token minted by the browser tokenization component. Never raw cardholder data.',
+  },
+  return_url: {
+    kind: 'string',
+    tsType: 'string',
+    doc: "Your website's post-payment completion URL. Providers whose payment methods can redirect require it at confirmation.",
   },
   reference: {
     kind: 'string',

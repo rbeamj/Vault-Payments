@@ -56,9 +56,11 @@ capabilities:
     status: verified
     notes: >-
       Create+confirm in one call: a PaymentIntent with confirm=true, a
-      frontend-minted payment_method and capture_method=manual. Without
-      confirmation the intent never reaches requires_capture, so capture is
-      refused. Verified live in the partner sandbox with a restricted key.
+      frontend-minted payment_method, a return_url for the redirectable-method
+      confirmation contract, card-only payment_method_types and
+      capture_method=manual. Without confirmation the intent never reaches
+      requires_capture, so capture is refused. Verified live in the partner
+      sandbox with a restricted key.
     source: https://docs.stripe.com/api/payment_intents/create
   payment.capture:
     status: verified
@@ -98,6 +100,9 @@ operations:
       # a confirmation accepts dashboard-enabled redirect methods, which the
       # provider then refuses server-side without a return_url.
       payment_method_types[0]: { const: card }
+      # The provider requires a post-payment completion URL at confirmation;
+      # its automated sandbox monitor also rejects confirmations without one.
+      return_url: { from: return_url }
       capture_method: { const: manual }
       description: { from: reference }
       metadata: { from: metadata }

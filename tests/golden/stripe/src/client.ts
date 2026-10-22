@@ -181,6 +181,7 @@ export class StripeClient {
         confirm: true,
         payment_method: request.payment_method,
         "payment_method_types[0]": "card",
+        return_url: request.return_url,
         capture_method: "manual",
         description: request.reference,
         metadata: request.metadata,

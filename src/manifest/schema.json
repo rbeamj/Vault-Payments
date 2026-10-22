@@ -308,7 +308,7 @@
           "required": ["from"],
           "properties": {
             "from": {
-              "enum": ["id", "amount", "currency", "payment_method", "reference", "metadata"]
+              "enum": ["id", "amount", "currency", "payment_method", "return_url", "reference", "metadata"]
             }
           }
         },

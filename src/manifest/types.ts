@@ -98,6 +98,7 @@ export const CANONICAL_FIELDS = [
   'amount',
   'currency',
   'payment_method',
+  'return_url',
   'reference',
   'metadata',
 ] as const;

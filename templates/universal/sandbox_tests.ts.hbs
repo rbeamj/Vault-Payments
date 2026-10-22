@@ -29,6 +29,9 @@ test('sandbox: authorize a payment', { skip }, async () => {
     // the provider itself, never a cardholder detail.
     payment_method: {{{json sandboxToken}}},
     {{/if}}
+    // Post-payment completion URL: providers confirm against it even when
+    // the checkout is card-only.
+    return_url: 'https://merchant.example/payments/complete',
     reference: 'vault-sandbox-authorize',
   });
 
@@ -38,7 +41,7 @@ test('sandbox: authorize a payment', { skip }, async () => {
 
 test('sandbox: capture the authorized payment', { skip }, async () => {
   const client = new {{{clientClassName}}}({ config: loadConfig() });
-  {{#if sandboxToken}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: {{{json sandboxToken}}} });{{else}}const authorized = await client.authorize({ amount: 1000, currency: 'usd' });{{/if}}
+  {{#if sandboxToken}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: {{{json sandboxToken}}}, return_url: 'https://merchant.example/payments/complete' });{{else}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', return_url: 'https://merchant.example/payments/complete' });{{/if}}
   const captured = await client.capture(authorized.id, {});
 
   assert.ok(captured.id, 'capture must return an identifier');
@@ -46,7 +49,7 @@ test('sandbox: capture the authorized payment', { skip }, async () => {
 
 test('sandbox: void the authorized payment', { skip }, async () => {
   const client = new {{{clientClassName}}}({ config: loadConfig() });
-  {{#if sandboxToken}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: {{{json sandboxToken}}} });{{else}}const authorized = await client.authorize({ amount: 1000, currency: 'usd' });{{/if}}
+  {{#if sandboxToken}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: {{{json sandboxToken}}}, return_url: 'https://merchant.example/payments/complete' });{{else}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', return_url: 'https://merchant.example/payments/complete' });{{/if}}
   const cancelled = await client.void(authorized.id);
 
   assert.ok(cancelled.id, 'void must return an identifier');
@@ -54,7 +57,7 @@ test('sandbox: void the authorized payment', { skip }, async () => {
 
 test('sandbox: refund a captured payment', { skip }, async () => {
   const client = new {{{clientClassName}}}({ config: loadConfig() });
-  {{#if sandboxToken}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: {{{json sandboxToken}}} });{{else}}const authorized = await client.authorize({ amount: 1000, currency: 'usd' });{{/if}}
+  {{#if sandboxToken}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: {{{json sandboxToken}}}, return_url: 'https://merchant.example/payments/complete' });{{else}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', return_url: 'https://merchant.example/payments/complete' });{{/if}}
   await client.capture(authorized.id, {});
   const refunded = await client.refund(authorized.id, {});
 
@@ -63,7 +66,7 @@ test('sandbox: refund a captured payment', { skip }, async () => {
 
 test('sandbox: re-fetch payment status', { skip }, async () => {
   const client = new {{{clientClassName}}}({ config: loadConfig() });
-  {{#if sandboxToken}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: {{{json sandboxToken}}} });{{else}}const authorized = await client.authorize({ amount: 1000, currency: 'usd' });{{/if}}
+  {{#if sandboxToken}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: {{{json sandboxToken}}}, return_url: 'https://merchant.example/payments/complete' });{{else}}const authorized = await client.authorize({ amount: 1000, currency: 'usd', return_url: 'https://merchant.example/payments/complete' });{{/if}}
   const status = await client.status(authorized.id);
 
   assert.equal(status.id, authorized.id);

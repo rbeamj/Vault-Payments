@@ -27,6 +27,8 @@ export interface AuthorizeRequest {
   currency: string;
   /** Provider payment-method token minted by the browser tokenization component. Never raw cardholder data. */
   payment_method?: string;
+  /** Your website's post-payment completion URL. Providers whose payment methods can redirect require it at confirmation. */
+  return_url?: string;
   /** Your own reference for this payment. Never place cardholder data here. */
   reference?: string;
   /** Free-form key/value metadata passed through to the provider. */

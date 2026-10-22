@@ -26,6 +26,9 @@ test('sandbox: authorize a payment', { skip }, async () => {
     // The provider's documented sandbox token, from the manifest: minted by
     // the provider itself, never a cardholder detail.
     payment_method: "pm_card_visa",
+    // Post-payment completion URL: providers confirm against it even when
+    // the checkout is card-only.
+    return_url: 'https://merchant.example/payments/complete',
     reference: 'vault-sandbox-authorize',
   });
 
@@ -35,7 +38,7 @@ test('sandbox: authorize a payment', { skip }, async () => {
 
 test('sandbox: capture the authorized payment', { skip }, async () => {
   const client = new StripeClient({ config: loadConfig() });
-  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa" });
+  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa", return_url: 'https://merchant.example/payments/complete' });
   const captured = await client.capture(authorized.id, {});
 
   assert.ok(captured.id, 'capture must return an identifier');
@@ -43,7 +46,7 @@ test('sandbox: capture the authorized payment', { skip }, async () => {
 
 test('sandbox: void the authorized payment', { skip }, async () => {
   const client = new StripeClient({ config: loadConfig() });
-  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa" });
+  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa", return_url: 'https://merchant.example/payments/complete' });
   const cancelled = await client.void(authorized.id);
 
   assert.ok(cancelled.id, 'void must return an identifier');
@@ -51,7 +54,7 @@ test('sandbox: void the authorized payment', { skip }, async () => {
 
 test('sandbox: refund a captured payment', { skip }, async () => {
   const client = new StripeClient({ config: loadConfig() });
-  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa" });
+  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa", return_url: 'https://merchant.example/payments/complete' });
   await client.capture(authorized.id, {});
   const refunded = await client.refund(authorized.id, {});
 
@@ -60,7 +63,7 @@ test('sandbox: refund a captured payment', { skip }, async () => {
 
 test('sandbox: re-fetch payment status', { skip }, async () => {
   const client = new StripeClient({ config: loadConfig() });
-  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa" });
+  const authorized = await client.authorize({ amount: 1000, currency: 'usd', payment_method: "pm_card_visa", return_url: 'https://merchant.example/payments/complete' });
   const status = await client.status(authorized.id);
 
   assert.equal(status.id, authorized.id);

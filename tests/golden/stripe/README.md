@@ -16,7 +16,7 @@ Payment Intents lifecycle with header bearer auth, an Idempotency-Key header, an
 | Capability | Status | Notes |
 |------------|--------|-------|
 | `payment.create` | verified |  |
-| `payment.authorize` | verified | Create+confirm in one call: a PaymentIntent with confirm=true, a frontend-minted payment_method and capture_method=manual. Without confirmation the intent never reaches requires_capture, so capture is refused. Verified live in the partner sandbox with a restricted key. |
+| `payment.authorize` | verified | Create+confirm in one call: a PaymentIntent with confirm=true, a frontend-minted payment_method, a return_url for the redirectable-method confirmation contract, card-only payment_method_types and capture_method=manual. Without confirmation the intent never reaches requires_capture, so capture is refused. Verified live in the partner sandbox with a restricted key. |
 | `payment.capture` | verified |  |
 | `payment.void` | verified | Cancelling an uncaptured PaymentIntent is the void path. |
 | `payment.refund` | verified | Full and partial refunds; refunds are created against a PaymentIntent or Charge. |
